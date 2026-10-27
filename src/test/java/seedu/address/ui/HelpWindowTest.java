@@ -16,9 +16,12 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import javafx.application.Platform;
+import javafx.scene.control.Hyperlink;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.DataFormat;
+import javafx.scene.paint.Color;
+import javafx.scene.paint.Paint;
 import javafx.stage.Stage;
 import seedu.address.logic.commands.AddCommand;
 import seedu.address.logic.commands.ClearCommand;
@@ -179,5 +182,40 @@ public class HelpWindowTest {
         }, warning::set);
 
         assertTrue(warning.get().contains("Browser unavailable"));
+    }
+
+    @Test
+    public void userGuideLink_whenVisited_hasLegibleContrast() throws Exception {
+        FutureTask<Void> testOnFxThread = new FutureTask<>(() -> {
+            Stage stage = new Stage();
+            try {
+                HelpWindow helpWindow = new HelpWindow(stage);
+                Hyperlink link = helpWindow.getUserGuideLink();
+                link.setVisited(true);
+                stage.show();
+                stage.getScene().getRoot().applyCss();
+
+                Paint textFill = link.getTextFill();
+                assertTrue(textFill instanceof Color, "Visited text fill should be a Color");
+                Color color = (Color) textFill;
+
+                // Ensure the visited text color maintains readable contrast against the dark background (#353535).
+                // Luminance of #353535 is ~0.036. Visited text color should maintain a contrast ratio >= 4.0:1.
+                double bgLuminance = 0.036;
+                double textLuminance = 0.2126 * Math.pow(color.getRed(), 2.2)
+                        + 0.7152 * Math.pow(color.getGreen(), 2.2)
+                        + 0.0722 * Math.pow(color.getBlue(), 2.2);
+                double contrastRatio = (textLuminance + 0.05) / (bgLuminance + 0.05);
+
+                assertTrue(contrastRatio >= 4.0,
+                        "Visited link contrast ratio (" + contrastRatio + ") should be at least 4.0:1");
+            } finally {
+                stage.close();
+            }
+            return null;
+        });
+
+        Platform.runLater(testOnFxThread);
+        testOnFxThread.get(10, TimeUnit.SECONDS);
     }
 }
